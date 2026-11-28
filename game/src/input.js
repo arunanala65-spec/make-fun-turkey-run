@@ -1,29 +1,21 @@
-// Keyboard and mouse input, translated into plain game intents.
-// Held keys are polled each step; one-shot actions (jump, pause,
-// restart, start) are queued so a tap between frames is never lost.
+// Keyboard + mouse input as plain intents. Held keys are polled
+// every step; one-shot actions are queued so taps are never lost.
 
-export const INTENT = {
-  start: 'start',
-  jump: 'jump',
-  pause: 'pause',
-  restart: 'restart',
-  mute: 'mute',
-};
+export const INTENT = { start: 'start', jump: 'jump', pause: 'pause', restart: 'restart', mute: 'mute' };
 
 export function createInput(canvas) {
-  const held = { left: false, right: false, down: false, dash: false };
+  const held = { brake: false, duck: false, dash: false };
   const queue = [];
   let clickPoint = null;
 
-  const keyMap = {
-    ArrowLeft: 'left', KeyA: 'left',
-    ArrowRight: 'right', KeyD: 'right',
-    ArrowDown: 'down', KeyS: 'down',
-    ShiftLeft: 'dash', ShiftRight: 'dash', KeyL: 'dash',
+  const heldKeys = {
+    ArrowLeft: 'brake', KeyA: 'brake',
+    ArrowDown: 'duck', KeyS: 'duck',
+    ShiftLeft: 'dash', ShiftRight: 'dash', KeyL: 'dash', ArrowRight: 'dash', KeyD: 'dash',
   };
 
   function onKeyDown(event) {
-    const slot = keyMap[event.code];
+    const slot = heldKeys[event.code];
     if (slot) {
       held[slot] = true;
       event.preventDefault();
@@ -31,12 +23,10 @@ export function createInput(canvas) {
     }
     if (event.repeat) return;
     if (event.code === 'ArrowUp' || event.code === 'KeyW' || event.code === 'Space') {
-      queue.push(INTENT.jump);
-      queue.push(INTENT.start);
+      queue.push(INTENT.jump, INTENT.start);
       event.preventDefault();
     } else if (event.code === 'Enter') {
-      queue.push(INTENT.start);
-      queue.push(INTENT.restart);
+      queue.push(INTENT.start, INTENT.restart);
     } else if (event.code === 'KeyR') {
       queue.push(INTENT.restart);
     } else if (event.code === 'KeyP' || event.code === 'Escape') {
@@ -47,7 +37,7 @@ export function createInput(canvas) {
   }
 
   function onKeyUp(event) {
-    const slot = keyMap[event.code];
+    const slot = heldKeys[event.code];
     if (slot) held[slot] = false;
   }
 
@@ -66,17 +56,12 @@ export function createInput(canvas) {
 
   return {
     held,
-    takeIntents() {
-      const out = queue.splice(0, queue.length);
-      return out;
-    },
+    takeIntents: () => queue.splice(0, queue.length),
     takeClick() {
       const point = clickPoint;
       clickPoint = null;
       return point;
     },
-    pressJump() {
-      queue.push(INTENT.jump);
-    },
+    pressJump: () => queue.push(INTENT.jump),
   };
 }

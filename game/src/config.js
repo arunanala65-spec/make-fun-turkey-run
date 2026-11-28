@@ -1,66 +1,69 @@
-// Gobble Dash — Last Turkey Out!  Shared tuning for the whole game.
-// One place for sizes, speeds and stage thresholds so world.js and
-// render.js always agree about the field the turkey runs on.
+// Gobble Dash 2 — shared tuning: view size, run physics, farmer
+// behaviour and the three zones Pip escapes through.
 
-export const VIEW = { width: 960, height: 540, groundY: 452 };
+export const VIEW = { width: 960, height: 540, groundY: 456 };
 export const STEP = 1 / 60;
+export const PIXELS_PER_METRE = 44;
 
 export const RUN = {
-  escapeDistance: 1200, // metres to freedom
-  startLives: 3,
-  maxLives: 5,
-  turkeyX: 300, // turkey stays near here; the world scrolls past
-  cruiseSpeed: 5.2, // metres per second at a steady trot
-  dashSpeed: 8.6,
-  brakeSpeed: 2.4,
-  jumpVelocity: 720,
-  gravity: 1450,
-  dashStaminaMax: 100,
-  dashDrain: 34, // per second while dashing
-  dashRegen: 16, // per second while not dashing
-  cornStamina: 22,
+  escapeDistance: 1500,
+  maxLives: 3,
+  turkeyX: 320,
+  cruiseSpeed: 5.6,
+  dashSpeed: 9.2,
+  brakeSpeed: 2.6,
+  jumpVelocity: 760,
+  gravity: 1500,
+  staminaMax: 100,
+  dashDrain: 30,
+  dashRegen: 18,
+  cornStamina: 24,
   cornScore: 25,
-  metreScore: 1,
-  stumbleSeconds: 0.9,
-  invincibleSeconds: 1.4,
+  stumbleSeconds: 0.85,
+  invincibleSeconds: 1.5,
+  nearMissClearance: 30,
+  maxCombo: 8,
 };
 
 export const FARMER = {
-  startGap: 30, // metres behind the turkey at the start
-  maxGap: 48,
-  baseSpeed: 5.0,
-  stageSpeedBonus: [0, 0.5, 1.05],
-  lungeSpeed: 9.8,
-  lungeSeconds: 1.3,
-  lungeWarnSeconds: 0.65,
-  lungeCooldown: [7, 10], // seconds between lunges (min, max)
-  tiredSeconds: 1.6,
-  tiredSpeed: 2.6,
+  startGap: 26,
+  maxGap: 46,
+  baseSpeed: 5.15,
+  zoneSpeedBonus: [0, 0.45, 0.95],
+  lungeSpeed: 10.2,
+  lungeSeconds: 1.25,
+  lungeWarnSeconds: 0.6,
+  lungeCooldown: [6.5, 9.5],
+  tiredSeconds: 1.7,
+  tiredSpeed: 2.4,
+  searchSeconds: 2.6,
   catchGap: 0.4,
 };
 
-export const STAGES = [
-  { name: 'Farmyard', from: 0, skyTop: '#f7c873', skyBottom: '#fdeec9', ground: '#8a5a33', grass: '#c98f3d' },
-  { name: 'Barnyard', from: 400, skyTop: '#f2a65a', skyBottom: '#fbd9a0', ground: '#7c4f2c', grass: '#b87a34' },
-  { name: 'Kitchen Run', from: 800, skyTop: '#e07a4a', skyBottom: '#f6c489', ground: '#6e4526', grass: '#a96a2e' },
+export const ZONES = [
+  { name: 'Farmyard', from: 0, skyTop: '#f8cf7e', skyBottom: '#fdf0cd', ground: '#8a5a33', trim: '#c98f3d' },
+  { name: 'Pumpkin Orchard', from: 500, skyTop: '#f4a95c', skyBottom: '#fbd9a0', ground: '#7c4f2c', trim: '#d97b2f' },
+  { name: 'The Kitchen', from: 1000, skyTop: '#5d4a3a', skyBottom: '#8a6a4d', ground: '#4c3a2c', trim: '#e8dcc3' },
 ];
 
 export const OBSTACLE = {
-  oven: { width: 74, height: 86, label: 'OVEN' },
-  knifeGround: { width: 56, height: 30, label: 'KNIFE' },
-  hay: { width: 62, height: 44, label: 'HAY' },
-  puddle: { width: 84, height: 14, label: 'MUD' },
-  knifeThrown: { width: 52, height: 16, label: 'KNIFE' },
+  oven: { width: 84, height: 96 },
+  knifeGround: { width: 62, height: 32 },
+  hayBale: { width: 68, height: 48 },
+  pumpkin: { width: 52, height: 44 },
+  mud: { width: 92, height: 14 },
+  knifeThrown: { width: 56, height: 16 },
+  pot: { width: 58, height: 52 },
 };
 
-export function stageForDistance(distance) {
+export function zoneIndexFor(distance) {
   let index = 0;
-  for (let i = 0; i < STAGES.length; i += 1) {
-    if (distance >= STAGES[i].from) index = i;
+  for (let i = 0; i < ZONES.length; i += 1) {
+    if (distance >= ZONES[i].from) index = i;
   }
   return index;
 }
 
-export function stageName(distance) {
-  return STAGES[stageForDistance(distance)].name;
+export function zoneName(distance) {
+  return ZONES[zoneIndexFor(distance)].name;
 }
