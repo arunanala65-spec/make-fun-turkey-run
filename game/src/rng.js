@@ -1,5 +1,5 @@
-// Seeded random numbers (mulberry32): the same seed always grows
-// the same farm, so screenshot scenes render identically anywhere.
+// Seeded random numbers (mulberry32): one seed grows one farm, so
+// screenshot scenes render identically on every machine.
 
 export function makeRng(seed) {
   let state = (seed >>> 0) || 1;
@@ -22,5 +22,5 @@ export function rngPick(rng, items) {
 
 export function seedFromQuery(search) {
   const raw = Number(new URLSearchParams(search).get('seed'));
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 11;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 7;
 }

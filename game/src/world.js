@@ -1,10 +1,11 @@
 // The world simulation: zone spawning (obstacles, corn, golden
-// feathers, hide spots), collisions, near-miss combos, scoring and
-// the win/lose rules. No drawing here — render.js reads this state.
+// feathers, power-ups, hide spots), the oven gauntlet finale,
+// collisions, near-miss combos, scoring and win/lose rules.
 
-import { FARMER, OBSTACLE, PIXELS_PER_METRE, RUN, VIEW, zoneIndexFor } from './config.js';
+import { FARMER, inGauntlet, OBSTACLE, PIXELS_PER_METRE, POWERUP, RUN, VIEW, zoneIndexFor } from './config.js';
 import { createFarmer, createTurkey, hideInHaystack, leaveHiding, stepTurkey, updateFarmerChase } from './entities.js';
-import { addFlash, addPopup, addShake, burst, createEffects, featherBurst, showBanner, stepEffects } from './effects.js';
+import { addFlash, addPopup, addShake, burst, confettiRain, createEffects, featherBurst, flameTrail, showBanner, stepEffects } from './effects.js';
+import { collectPowerup, createPowerupState, magnetPull, POWERUP_KINDS, stepPowerups } from './powerups.js';
 import { makeRng, rngPick, rngRange } from './rng.js';
 
 const GROUND = VIEW.groundY;
@@ -30,10 +31,13 @@ export function createWorld(seed) {
     combo: 0,
     bestCombo: 0,
     nearMisses: 0,
+    powerupsTaken: 0,
+    gauntletAnnounced: false,
     over: false,
     escaped: false,
     turkey: createTurkey(),
     farmer: createFarmer(),
+    power: createPowerupState(),
     obstacles: [],
     pickups: [],
     hideSpots: [],
@@ -43,8 +47,23 @@ export function createWorld(seed) {
     scroll: 0,
   };
 
+  function spawnPickup(x) {
+    const roll = rng();
+    let kind = 'corn';
+    if (roll < POWERUP.spawnChance) kind = rngPick(rng, POWERUP_KINDS);
+    else if (roll < POWERUP.spawnChance + 0.12) kind = 'feather';
+    state.pickups.push({
+      kind,
+      x,
+      y: GROUND - rngRange(rng, 44, 130),
+      taken: false,
+      bob: rngRange(rng, 0, 6.28),
+    });
+  }
+
   function spawnObstacle() {
-    const kind = rngPick(rng, ZONE_OBSTACLES[state.zone]);
+    const gauntlet = inGauntlet(state.distance);
+    const kind = gauntlet && rng() < 0.45 ? 'oven' : rngPick(rng, ZONE_OBSTACLES[state.zone]);
     const spec = OBSTACLE[kind];
     const y = kind === 'knifeThrown' ? GROUND - 58 : GROUND - spec.height;
     state.obstacles.push({
@@ -53,27 +72,14 @@ export function createWorld(seed) {
       vx: kind === 'knifeThrown' ? -170 : 0,
       spin: 0, passed: false, hitDone: false, nearChecked: false,
     });
-    if (rng() < 0.6) {
-      const golden = rng() < 0.14;
-      state.pickups.push({
-        kind: golden ? 'feather' : 'corn',
-        x: VIEW.width + rngRange(rng, 100, 280),
-        y: GROUND - rngRange(rng, 44, 130),
-        taken: false,
-        bob: rngRange(rng, 0, 6.28),
-      });
-    }
-    const density = 1 - state.zone * 0.14;
+    if (rng() < 0.62) spawnPickup(VIEW.width + rngRange(rng, 100, 280));
+    const density = (1 - state.zone * 0.14) * (gauntlet ? 0.72 : 1);
     state.nextSpawnAt = state.distance + rngRange(rng, 17, 31) * density;
   }
 
   function spawnHideSpot() {
     const kinds = ['haystack', 'bush', 'counter'];
-    state.hideSpots.push({
-      kind: kinds[state.zone],
-      x: VIEW.width + 80,
-      width: 92,
-    });
+    state.hideSpots.push({ kind: kinds[state.zone], x: VIEW.width + 80, width: 92 });
     state.nextHideAt = state.distance + rngRange(rng, 90, 150);
   }
 
@@ -106,6 +112,14 @@ export function createWorld(seed) {
   function hitTurkey(obstacle, events) {
     const turkey = state.turkey;
     obstacle.hitDone = true;
+    if (obstacle.kind !== 'mud' && state.power.shield) {
+      state.power.shield = false;
+      turkey.invincible = RUN.invincibleSeconds;
+      addPopup(state.effects, turkey.x + 30, turkey.y - 16, '🛡 SHIELD BLOCKED IT!', '#4fc3f7', 18);
+      burst(state.effects, rng, turkey.x + 32, turkey.y + 18, '#4fc3f7', 10, 100);
+      events.shieldBlock = true;
+      return;
+    }
     state.combo = 0;
     if (obstacle.kind === 'mud') {
       turkey.stumble = RUN.stumbleSeconds;
@@ -129,6 +143,25 @@ export function createWorld(seed) {
       state.escaped = false;
       events.caught = true;
     }
+  }
+
+  function takePickup(pickup, events) {
+    pickup.taken = true;
+    if (pickup.kind === 'corn') {
+      state.corn += 1;
+      state.score += RUN.cornScore;
+      state.stamina = Math.min(RUN.staminaMax, state.stamina + RUN.cornStamina);
+      addPopup(state.effects, pickup.x, pickup.y - 8, `+${RUN.cornScore} 🌽`, '#ffd23f', 16);
+      events.corn = true;
+    } else if (pickup.kind === 'feather') {
+      state.lives = Math.min(RUN.maxLives, state.lives + 1);
+      addPopup(state.effects, pickup.x, pickup.y - 8, '+1 ♥ GOLDEN FEATHER', '#ffe066', 17);
+      events.feather = true;
+    } else {
+      state.powerupsTaken += 1;
+      collectPowerup(state, pickup.kind, pickup.x, pickup.y, rng, events);
+    }
+    burst(state.effects, rng, pickup.x + 14, pickup.y + 16, '#ffd23f', 7, 80);
   }
 
   function stepObstacles(dt, events) {
@@ -155,20 +188,9 @@ export function createWorld(seed) {
       pickup.x -= scrollPx;
       pickup.bob += dt * 4;
       if (pickup.taken || turkey.hidden) continue;
+      if (pickup.kind === 'corn') magnetPull(state, pickup, dt);
       if (overlaps(turkey, { x: pickup.x, y: pickup.y, width: 28, height: 36 }, 2, 2)) {
-        pickup.taken = true;
-        if (pickup.kind === 'feather') {
-          state.lives = Math.min(RUN.maxLives, state.lives + 1);
-          addPopup(state.effects, pickup.x, pickup.y - 8, '+1 ♥ GOLDEN FEATHER', '#ffe066', 17);
-          events.feather = true;
-        } else {
-          state.corn += 1;
-          state.score += RUN.cornScore;
-          state.stamina = Math.min(RUN.staminaMax, state.stamina + RUN.cornStamina);
-          addPopup(state.effects, pickup.x, pickup.y - 8, `+${RUN.cornScore} 🌽`, '#ffd23f', 16);
-          events.corn = true;
-        }
-        burst(state.effects, rng, pickup.x + 14, pickup.y + 16, '#ffd23f', 7, 80);
+        takePickup(pickup, events);
       }
     }
     state.pickups = state.pickups.filter((p) => !p.taken && p.x > -70);
@@ -195,11 +217,15 @@ export function createWorld(seed) {
     const events = {};
     if (state.over) return events;
     state.time += dt;
+    stepPowerups(state, dt);
     stepHideSpots(dt, control, events);
     stepTurkey(state, dt, control, events);
     state.distance += state.speed * dt;
     state.score += state.speed * dt;
     state.scroll += state.speed * PIXELS_PER_METRE * dt;
+    if (state.power.turbo > 0 && !state.turkey.hidden) {
+      flameTrail(state.effects, rng, state.turkey.x + 6, state.turkey.y + 30);
+    }
     const newZone = zoneIndexFor(state.distance);
     if (newZone !== state.zone) {
       state.zone = newZone;
@@ -207,6 +233,13 @@ export function createWorld(seed) {
       showBanner(state.effects, `ZONE ${newZone + 1}`, newZone === 1 ? 'PUMPKIN ORCHARD' : 'THE KITCHEN — ALMOST THERE!');
       state.farmer.shout = newZone === 1 ? 'THROUGH THE PUMPKINS!' : 'INTO MY KITCHEN!';
       state.farmer.shoutTime = 1.6;
+    }
+    if (inGauntlet(state.distance) && !state.gauntletAnnounced) {
+      state.gauntletAnnounced = true;
+      events.gauntlet = true;
+      showBanner(state.effects, '🔥 OVEN GAUNTLET!', 'LAST 120m — THE GIANT OVEN AWAITS!');
+      state.farmer.shout = 'THE OVEN IS READY!';
+      state.farmer.shoutTime = 1.8;
     }
     if (state.distance >= state.nextSpawnAt) spawnObstacle();
     if (state.distance >= state.nextHideAt) spawnHideSpot();
@@ -217,6 +250,7 @@ export function createWorld(seed) {
       state.over = true;
       state.escaped = true;
       state.score += 500;
+      confettiRain(state.effects, rng, VIEW.width);
       events.escaped = true;
     }
     return events;
@@ -231,8 +265,8 @@ export function finalScore(state) {
 
 export function escapeRank(state) {
   const score = finalScore(state);
-  if (score >= 3200) return 'LEGENDARY GOBBLER 🏆';
-  if (score >= 2600) return 'MASTER ESCAPIST 🥇';
-  if (score >= 2100) return 'SPEEDY GOBBLER 🥈';
+  if (score >= 3400) return 'LEGENDARY GOBBLER 🏆';
+  if (score >= 2800) return 'MASTER ESCAPIST 🥇';
+  if (score >= 2200) return 'SPEEDY GOBBLER 🥈';
   return 'LUCKY TURKEY 🍀';
 }

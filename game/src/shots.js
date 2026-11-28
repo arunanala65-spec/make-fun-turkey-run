@@ -1,4 +1,4 @@
-// Deterministic screenshot scenes behind ?shot=cover|title|kitchen|escaped.
+// Deterministic screenshot scenes behind ?shot=cover|title|gauntlet|escaped.
 // Each scene steps the real simulation with an autopilot (jump ground
 // hazards, duck thrown knives, dash out of lunges, hide when the
 // farmer closes in) so every screenshot is a genuine frame of play.
@@ -58,44 +58,45 @@ export function stageShot(name, world) {
   const state = world.state;
   if (name === 'cover') {
     runSeconds(world, 21);
-    // keep stepping until Pip is airborne over a hazard for the cover frame
     let guard = 0;
     while (state.turkey.onGround && !state.over && guard < 60 * 6) {
       world.step(STEP, autopilotControl(state));
       guard += 1;
     }
     runSeconds(world, 0.24);
-    // freeze mid-action: ensure a near-miss popup and combo are visible
     if (state.effects.popups.length === 0) {
       state.combo = Math.max(state.combo, 4);
       addPopup(state.effects, state.turkey.x + 40, state.turkey.y - 26, 'NEAR MISS x4 +40', '#7dd7ff', 20);
     }
     if (state.farmer.gap > 20) state.farmer.gap = 13;
     state.farmer.spottedFlash = 0.6;
+    // show a power-up chip + shield ring on the cover frame
+    state.power.shield = true;
+    state.power.turbo = Math.max(state.power.turbo, 2.4);
     return { screen: SCREEN.play };
   }
-  if (name === 'kitchen') {
-    runUntil(world, (s) => s.distance >= 1040, 60 * 300);
-    // settle into a hide spot in the kitchen for the search scene
-    state.hideSpots.push({ kind: 'counter', x: state.turkey.x - 14, width: 92 });
-    state.turkey.hidden = true;
-    state.turkey.ducking = false;
-    state.turkey.vy = 0;
-    state.turkey.onGround = true;
-    state.turkey.height = 34;
-    state.turkey.y = 456 - 34;
-    state.farmer.state = 'search';
-    state.farmer.stateTime = 0.4;
-    state.farmer.shout = 'WHERE?!';
-    state.farmer.shoutTime = 1.2;
-    state.farmer.gap = 11;
-    runSeconds(world, 0.4);
+  if (name === 'gauntlet') {
+    runUntil(world, (s) => s.distance >= 1450, 60 * 300);
+    if (state.over) {
+      // autopilot fell short: restart the run state at the gauntlet mouth
+      state.over = false;
+      state.lives = Math.max(1, state.lives);
+      state.distance = 1432;
+      state.zone = 2;
+      state.farmer.gap = 14;
+      state.turkey.invincible = 1;
+      runSeconds(world, 0.6);
+    }
+    if (!state.over) {
+      state.farmer.gap = Math.min(state.farmer.gap, 12);
+      state.farmer.spottedFlash = 0.6;
+      runSeconds(world, 0.5);
+    }
     return { screen: SCREEN.play };
   }
   if (name === 'escaped') {
     runUntil(world, (s) => s.over, 60 * 420);
     if (!state.escaped) {
-      // autopilot fell short: restart the run state at the finish line
       state.over = false;
       state.lives = Math.max(1, state.lives);
       state.distance = 1492;

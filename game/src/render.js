@@ -1,8 +1,9 @@
-// All drawing for Gobble Dash 2: three visually distinct zones
-// (farmyard, pumpkin orchard, kitchen interior), big readable
-// turkey and farmer sprites, obstacles, HUD and every screen.
+// All drawing for Gobble Dash 3: three distinct zones, the oven
+// gauntlet gate, big readable sprites, power-up icons and chips,
+// a minimap with zone markers, HUD and every screen.
 
 import { RUN, VIEW, ZONES } from './config.js';
+import { activePowerupChips } from './powerups.js';
 import { escapeRank, finalScore } from './world.js';
 
 export const SCREEN = { title: 'title', play: 'play', pause: 'pause', end: 'end' };
@@ -34,7 +35,7 @@ function text(ctx, value, x, y, size, colour, align = 'left', weight = 'bold') {
   ctx.fillText(value, x, y);
 }
 
-function drawSky(ctx, zone, scroll, time) {
+function drawSky(ctx, zone, scroll, distance) {
   const palette = ZONES[zone];
   const gradient = ctx.createLinearGradient(0, 0, 0, VIEW.groundY);
   gradient.addColorStop(0, palette.skyTop);
@@ -42,7 +43,6 @@ function drawSky(ctx, zone, scroll, time) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, VIEW.width, VIEW.groundY);
   if (zone === 2) {
-    // kitchen wall: tiles + window glow
     ctx.strokeStyle = 'rgba(255,246,227,0.14)';
     ctx.lineWidth = 2;
     for (let x = -(scroll % 64); x < VIEW.width; x += 64) {
@@ -54,8 +54,10 @@ function drawSky(ctx, zone, scroll, time) {
     ctx.beginPath(); ctx.moveTo(775, 110); ctx.lineTo(775, 220); ctx.stroke();
     return;
   }
-  ctx.fillStyle = '#fff3c4';
-  ctx.beginPath(); ctx.arc(842, 80, 38, 0, Math.PI * 2); ctx.fill();
+  // sun sinks as the run goes on: morning farmyard -> dusk orchard
+  const sunY = 70 + Math.min(150, distance * 0.14);
+  ctx.fillStyle = zone === 1 ? '#ffb03a' : '#fff3c4';
+  ctx.beginPath(); ctx.arc(842, sunY, 38, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
   for (let i = 0; i < 4; i += 1) {
     const cx = ((i * 290 - scroll * 0.1) % 1140 + 1140) % 1140 - 90;
@@ -64,7 +66,6 @@ function drawSky(ctx, zone, scroll, time) {
     ctx.ellipse(cx + 36, 64 + (i % 2) * 32, 38, 12, 0, 0, Math.PI * 2);
     ctx.fill();
   }
-  void time;
 }
 
 function drawBarn(ctx, x) {
@@ -124,7 +125,6 @@ function drawPumpkinPatch(ctx, scroll) {
 }
 
 function drawKitchenProps(ctx, scroll, time) {
-  // hanging pots rail
   ctx.fillStyle = '#3a2a1c';
   ctx.fillRect(0, 96, VIEW.width, 8);
   for (let i = 0; i < 5; i += 1) {
@@ -136,7 +136,6 @@ function drawKitchenProps(ctx, scroll, time) {
     ctx.fillStyle = '#6b7684';
     ctx.fillRect(x - 20, 128, 40, 7);
   }
-  // shelf with jars
   ctx.fillStyle = '#6e4526';
   ctx.fillRect(60, 236, 220, 10);
   const jarColours = ['#d96c2c', '#7cb342', '#e8b53a', '#c94f38'];
@@ -144,7 +143,6 @@ function drawKitchenProps(ctx, scroll, time) {
     ctx.fillStyle = jarColours[i];
     roundRect(ctx, 76 + i * 52, 204, 34, 32, 5); ctx.fill();
   }
-  // steam puffs
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   for (let i = 0; i < 3; i += 1) {
     const sx = 620 + i * 90;
@@ -153,8 +151,32 @@ function drawKitchenProps(ctx, scroll, time) {
   }
 }
 
+function drawGiantOvenGate(ctx, state, time) {
+  // the finish-line oven: scrolls in during the gauntlet finale
+  const metresLeft = RUN.escapeDistance - state.distance;
+  if (metresLeft > 60) return;
+  const x = state.turkey.x + metresLeft * 44;
+  if (x > VIEW.width + 200) return;
+  const y = VIEW.groundY - 210;
+  ctx.fillStyle = '#3c3c44';
+  roundRect(ctx, x, y, 170, 210, 12); ctx.fill();
+  ctx.fillStyle = '#232329';
+  ctx.fillRect(x + 14, y + 14, 142, 18);
+  const glow = 0.75 + Math.sin(time * 7) * 0.25;
+  ctx.fillStyle = `rgba(255,${Math.floor(120 * glow)},40,0.95)`;
+  ctx.fillRect(x + 22, y + 52, 126, 96);
+  ctx.fillStyle = '#ffd23f';
+  for (let i = 0; i < 4; i += 1) { ctx.beginPath(); ctx.arc(x + 30 + i * 38, y + 23, 7, 0, Math.PI * 2); ctx.fill(); }
+  text(ctx, 'THE OVEN', x + 85, y + 172, 20, CREAM, 'center');
+  text(ctx, '350°', x + 85, y + 196, 16, '#ffb03a', 'center');
+  ctx.fillStyle = '#e05252';
+  ctx.beginPath();
+  ctx.moveTo(x - 6, y - 34); ctx.lineTo(x + 176, y - 34); ctx.lineTo(x + 85, y - 2); ctx.closePath(); ctx.fill();
+  text(ctx, '🏁 ESCAPE!', x + 85, y - 44, 18, '#d63c2a', 'center');
+}
+
 function drawZoneBackground(ctx, state) {
-  drawSky(ctx, state.zone, state.scroll, state.time);
+  drawSky(ctx, state.zone, state.scroll, state.distance);
   if (state.zone === 0) {
     drawBarn(ctx, 1120 - ((state.scroll * 0.32) % 1560));
     for (let i = 0; i < 3; i += 1) {
@@ -172,12 +194,10 @@ function drawZoneBackground(ctx, state) {
   } else {
     drawKitchenProps(ctx, state.scroll, state.time);
   }
-  // ground
   const palette = ZONES[state.zone];
   ctx.fillStyle = palette.ground;
   ctx.fillRect(0, VIEW.groundY, VIEW.width, VIEW.height - VIEW.groundY);
   if (state.zone === 2) {
-    // checkered kitchen floor
     const size = 42;
     for (let row = 0; row < 2; row += 1) {
       for (let x = -(state.scroll % (size * 2)) - size; x < VIEW.width; x += size) {
@@ -191,8 +211,15 @@ function drawZoneBackground(ctx, state) {
     ctx.fillRect(0, VIEW.groundY, VIEW.width, 10);
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     for (let x = -(state.scroll % 90); x < VIEW.width; x += 90) ctx.fillRect(x, VIEW.groundY + 36, 44, 6);
+    // foreground grass tufts
+    ctx.strokeStyle = '#5d7a2e'; ctx.lineWidth = 2;
+    for (let x = -(state.scroll % 70); x < VIEW.width; x += 70) {
+      ctx.beginPath();
+      ctx.moveTo(x, VIEW.groundY + 8); ctx.lineTo(x - 4, VIEW.groundY - 6);
+      ctx.moveTo(x + 5, VIEW.groundY + 8); ctx.lineTo(x + 9, VIEW.groundY - 8);
+      ctx.stroke();
+    }
   }
-  // drifting leaves (outdoors only)
   if (state.zone < 2) {
     ctx.fillStyle = '#e88f3a';
     for (let i = 0; i < 9; i += 1) {
@@ -201,13 +228,22 @@ function drawZoneBackground(ctx, state) {
       ctx.save(); ctx.translate(lx, ly); ctx.rotate(state.time + i); ctx.fillRect(-5, -2, 10, 4); ctx.restore();
     }
   }
+  drawGiantOvenGate(ctx, state, state.time);
 }
 
-export function drawTurkey(ctx, turkey, time) {
+export function drawTurkey(ctx, state, time) {
+  const turkey = state.turkey;
   const blink = turkey.invincible > 0 && Math.floor(time * 14) % 2 === 0;
   ctx.save();
   ctx.translate(turkey.x, turkey.y);
   if (blink) ctx.globalAlpha = 0.35;
+  if (state.power.shield) {
+    ctx.strokeStyle = 'rgba(79,195,247,0.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(34, turkey.height - 24, 46, 36, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   const legSwing = turkey.onGround && !turkey.hidden ? Math.sin(turkey.runPhase) * 11 : 3;
   ctx.strokeStyle = '#e8a13a'; ctx.lineWidth = 5;
   ctx.beginPath();
@@ -242,6 +278,17 @@ export function drawTurkey(ctx, turkey, time) {
     text(ctx, '…', 34, -12, 20, CREAM, 'center');
   }
   ctx.restore();
+  if (state.power.turbo > 0 && !turkey.hidden) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i += 1) {
+      const y = turkey.y + 8 + i * 12;
+      ctx.beginPath();
+      ctx.moveTo(turkey.x - 70 - (i % 2) * 30, y);
+      ctx.lineTo(turkey.x - 14, y);
+      ctx.stroke();
+    }
+  }
 }
 
 export function drawFarmer(ctx, farmer, turkeyX, time) {
@@ -427,6 +474,39 @@ function drawPickup(ctx, pickup) {
     ctx.strokeStyle = '#d9a41f'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, 20); ctx.stroke();
     text(ctx, '+1♥', 0, -30, 13, '#d9a41f', 'center');
+  } else if (pickup.kind === 'chili') {
+    ctx.rotate(0.6 + Math.sin(pickup.bob) * 0.15);
+    ctx.fillStyle = '#e03a2a';
+    ctx.beginPath();
+    ctx.moveTo(-6, -16);
+    ctx.quadraticCurveTo(14, -6, 8, 14);
+    ctx.quadraticCurveTo(2, 22, -4, 16);
+    ctx.quadraticCurveTo(-10, 0, -6, -16);
+    ctx.fill();
+    ctx.fillStyle = '#5d7a2e';
+    ctx.fillRect(-8, -22, 12, 7);
+    text(ctx, '🌶', 0, -34, 15, '#e03a2a', 'center');
+  } else if (pickup.kind === 'shield') {
+    ctx.fillStyle = '#4fc3f7';
+    ctx.beginPath();
+    ctx.moveTo(0, -18);
+    ctx.lineTo(15, -11);
+    ctx.lineTo(15, 4);
+    ctx.quadraticCurveTo(15, 16, 0, 21);
+    ctx.quadraticCurveTo(-15, 16, -15, 4);
+    ctx.lineTo(-15, -11);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#1b6ea8'; ctx.lineWidth = 2; ctx.stroke();
+    text(ctx, '🛡', 0, -32, 15, '#1b6ea8', 'center');
+  } else if (pickup.kind === 'magnet') {
+    ctx.fillStyle = '#e05252';
+    ctx.fillRect(-13, -16, 9, 24);
+    ctx.fillRect(4, -16, 9, 24);
+    ctx.fillRect(-13, -16, 26, 9);
+    ctx.fillStyle = '#e8eef4';
+    ctx.fillRect(-13, 2, 9, 7);
+    ctx.fillRect(4, 2, 9, 7);
+    text(ctx, '🧲', 0, -30, 15, '#b83232', 'center');
   } else {
     ctx.rotate(0.4);
     ctx.fillStyle = '#ffd23f';
@@ -470,14 +550,34 @@ function drawEffects(ctx, effects) {
     ctx.strokeRect(0, 0, VIEW.width, VIEW.height);
   }
   if (effects.banner) {
-    const alpha = Math.min(1, effects.banner.life);
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = Math.min(1, effects.banner.life);
     ctx.fillStyle = 'rgba(51,32,15,0.78)';
     roundRect(ctx, 280, 150, 400, 74, 14); ctx.fill();
     text(ctx, effects.banner.title, 480, 176, 26, '#ffd23f', 'center');
     text(ctx, effects.banner.subtitle, 480, 204, 16, CREAM, 'center', 'normal');
     ctx.globalAlpha = 1;
   }
+}
+
+function drawMinimap(ctx, state) {
+  const x = 330;
+  const y = 63;
+  const width = 300;
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  roundRect(ctx, x, y, width, 5, 3); ctx.fill();
+  ctx.fillStyle = '#7cb342';
+  roundRect(ctx, x, y, width * Math.min(1, state.distance / RUN.escapeDistance), 5, 3); ctx.fill();
+  for (const zone of ZONES.slice(1)) {
+    const zx = x + width * (zone.from / RUN.escapeDistance);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(zx - 1, y - 3, 2, 11);
+  }
+  const gx = x + width * (RUN.gauntletFrom / RUN.escapeDistance);
+  ctx.fillStyle = '#ff7a3c';
+  ctx.fillRect(gx - 1, y - 3, 2, 11);
+  const px = x + width * Math.min(1, state.distance / RUN.escapeDistance);
+  ctx.fillStyle = '#fff6e3';
+  ctx.beginPath(); ctx.arc(px, y + 2, 5, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawHud(ctx, state, best) {
@@ -498,11 +598,7 @@ function drawHud(ctx, state, best) {
   }
   text(ctx, `🌽 ${state.corn}`, 868, 31, 18, '#ffd23f', 'center');
   if (state.combo > 1) text(ctx, `COMBO x${state.combo}`, 868, 55, 13, '#7dd7ff', 'center');
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  roundRect(ctx, 330, 63, 300, 5, 3); ctx.fill();
-  ctx.fillStyle = '#7cb342';
-  roundRect(ctx, 330, 63, 300 * Math.min(1, state.distance / RUN.escapeDistance), 5, 3); ctx.fill();
-  // farmer gap + dash meters on dark chips for contrast
+  drawMinimap(ctx, state);
   const gapRatio = Math.max(0, Math.min(1, state.farmer.gap / 46));
   ctx.fillStyle = 'rgba(51,32,15,0.82)';
   roundRect(ctx, 12, 78, 300, 24, 8); ctx.fill();
@@ -519,6 +615,13 @@ function drawHud(ctx, state, best) {
   roundRect(ctx, 704, 84, 170, 12, 6); ctx.fill();
   ctx.fillStyle = '#4fc3f7';
   roundRect(ctx, 706, 86, 166 * (state.stamina / RUN.staminaMax), 8, 4); ctx.fill();
+  const chips = activePowerupChips(state);
+  chips.forEach((chip, i) => {
+    const cx = 12 + i * 150;
+    ctx.fillStyle = 'rgba(51,32,15,0.82)';
+    roundRect(ctx, cx, 108, 142, 24, 8); ctx.fill();
+    text(ctx, chip.text, cx + 71, 120, 12, chip.colour, 'center');
+  });
   if (state.farmer.state === 'warn') {
     text(ctx, '⚠ FARMER LUNGING — DASH! (SHIFT)', 480, 118, 18, '#d63c2a', 'center');
   } else if (state.turkey.hidden) {
@@ -538,16 +641,16 @@ function drawButton(ctx, button) {
 function drawTitle(ctx, state, best) {
   drawZoneBackground(ctx, state);
   drawFarmer(ctx, { ...state.farmer, gap: 12, state: 'chase', shout: '', shoutTime: 0, spottedFlash: 0 }, 760, state.time);
-  drawTurkey(ctx, { ...state.turkey, x: 760, y: VIEW.groundY - 56, hidden: false }, state.time);
+  drawTurkey(ctx, { ...state, turkey: { ...state.turkey, x: 760, y: VIEW.groundY - 56, hidden: false } }, state.time);
   ctx.fillStyle = 'rgba(51,32,15,0.6)';
   ctx.fillRect(0, 0, VIEW.width, 330);
-  text(ctx, '🦃 GOBBLE DASH 2', 480, 66, 52, '#ffd23f', 'center');
-  text(ctx, '— LAST TURKEY OUT! —', 480, 110, 22, CREAM, 'center');
+  text(ctx, '🦃 GOBBLE DASH 3', 480, 66, 52, '#ffd23f', 'center');
+  text(ctx, '— THANKSGIVING BREAKOUT! —', 480, 110, 22, CREAM, 'center');
   text(ctx, 'Pip is NOT becoming Thanksgiving dinner. Run 1500m to freedom!', 480, 144, 16, '#f7e8c9', 'center', 'normal');
   text(ctx, 'Jump the OVEN · duck the CARVING KNIFE · HIDE in haystacks · grab corn 🌽', 480, 170, 15, '#f7e8c9', 'center', 'normal');
-  text(ctx, 'Near-miss combos x8 · golden feathers +1♥ · dash when Farmer Hank lunges!', 480, 194, 15, '#f7e8c9', 'center', 'normal');
+  text(ctx, '🌶 chili turbo · 🛡 shield feather · 🧲 corn magnet · near-miss combos x8', 480, 194, 15, '#f7e8c9', 'center', 'normal');
   text(ctx, 'SPACE/W/CLICK jump · S/↓ duck+hide · SHIFT dash · ← brake · P pause · M sound', 480, 228, 14, CREAM, 'center', 'normal');
-  text(ctx, 'ZONE 1 FARMYARD → ZONE 2 PUMPKIN ORCHARD → ZONE 3 THE KITCHEN', 480, 254, 14, '#f7c873', 'center', 'normal');
+  text(ctx, 'FARMYARD → PUMPKIN ORCHARD → KITCHEN → 🔥 OVEN GAUNTLET', 480, 254, 14, '#f7c873', 'center', 'normal');
   drawButton(ctx, BUTTONS.start);
   text(ctx, `BEST ${best}`, 480, 302, 15, '#ffd23f', 'center');
 }
@@ -559,20 +662,20 @@ function drawEnd(ctx, state, best) {
   if (!state.escaped) {
     drawFarmer(ctx, { ...state.farmer, gap: 3, state: 'chase', shout: '', shoutTime: 0, spottedFlash: 0 }, state.turkey.x, state.time);
   }
-  drawTurkey(ctx, state.turkey, state.time);
+  drawTurkey(ctx, state, state.time);
   drawEffects(ctx, state.effects);
   ctx.fillStyle = 'rgba(51,32,15,0.64)';
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
   if (state.escaped) {
     text(ctx, '🎉 PIP ESCAPED!', 480, 132, 48, '#7cb342', 'center');
-    text(ctx, '1500m through farmyard, orchard and kitchen — no turkey on this table!', 480, 180, 17, CREAM, 'center', 'normal');
+    text(ctx, 'Past the giant oven — no turkey on this Thanksgiving table!', 480, 180, 17, CREAM, 'center', 'normal');
     text(ctx, escapeRank(state), 480, 214, 20, '#ffd23f', 'center');
   } else {
     text(ctx, '🍽️ CAUGHT!', 480, 132, 48, '#ff7a5c', 'center');
     text(ctx, 'Farmer Hank wins… this time. The oven stays cold a little longer.', 480, 180, 17, CREAM, 'center', 'normal');
   }
   text(ctx, `SCORE ${finalScore(state)}   DISTANCE ${Math.floor(state.distance)}m   🌽 ${state.corn}   BEST COMBO x${state.bestCombo}`, 480, 256, 19, '#ffd23f', 'center');
-  text(ctx, `Near misses ${state.nearMisses} · Time ${state.time.toFixed(0)}s · BEST ${best}`, 480, 290, 15, '#f7e8c9', 'center', 'normal');
+  text(ctx, `Near misses ${state.nearMisses} · Power-ups ${state.powerupsTaken} · Time ${state.time.toFixed(0)}s · BEST ${best}`, 480, 290, 15, '#f7e8c9', 'center', 'normal');
   drawButton(ctx, BUTTONS.restart);
   text(ctx, 'Press R or click RUN AGAIN', 480, 482, 13, CREAM, 'center', 'normal');
 }
@@ -585,11 +688,11 @@ export function drawGame(ctx, state, screen, best) {
   for (const pickup of state.pickups) drawPickup(ctx, pickup);
   drawFarmer(ctx, state.farmer, state.turkey.x, state.time);
   if (state.turkey.hidden) {
-    drawTurkey(ctx, state.turkey, state.time);
+    drawTurkey(ctx, state, state.time);
     for (const spot of state.hideSpots) drawHideSpot(ctx, spot);
   } else {
     for (const spot of state.hideSpots) drawHideSpot(ctx, spot);
-    drawTurkey(ctx, state.turkey, state.time);
+    drawTurkey(ctx, state, state.time);
   }
   drawEffects(ctx, state.effects);
   drawHud(ctx, state, best);

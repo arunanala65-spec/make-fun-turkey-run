@@ -1,4 +1,4 @@
-// Gobble Dash 2 boot: input, world, rendering and sound in a
+// Gobble Dash 3 boot: input, world, rendering and sound in a
 // fixed-step loop with title / play / pause / end flow, best score
 // in localStorage, and ?shot= staging for screenshots.
 
@@ -10,7 +10,8 @@ import { stageShot } from './shots.js';
 import { createWorld, finalScore } from './world.js';
 import {
   isMuted, playCaught, playCorn, playDash, playDuck, playEscaped, playFeather,
-  playGobble, playHit, playJump, playLungeWarning, playNearMiss, playSpotted, toggleMute,
+  playGauntletAlarm, playGobble, playHit, playJump, playLungeWarning, playNearMiss,
+  playPowerup, playShieldBlock, playSpotted, playTurbo, toggleMute,
 } from './audio.js';
 
 const canvas = document.getElementById('game');
@@ -22,7 +23,7 @@ const statusLine = document.getElementById('status');
 const params = new URLSearchParams(window.location.search);
 const seed = seedFromQuery(window.location.search);
 const shotName = params.get('shot');
-const BEST_KEY = 'gobble-dash-2-best';
+const BEST_KEY = 'gobble-dash-3-best';
 
 let world = createWorld(seed);
 let screen = SCREEN.title;
@@ -52,11 +53,15 @@ function resetRun() {
 function handleEvents(events) {
   if (events.corn) playCorn();
   if (events.feather) playFeather();
+  if (events.powerup === 'chili') playTurbo();
+  else if (events.powerup) playPowerup();
+  if (events.shieldBlock) playShieldBlock();
   if (events.jump) playJump();
   if (events.hit) playHit();
   if (events.nearMiss) playNearMiss();
   if (events.lungeWarn) playLungeWarning();
   if (events.spotted) playSpotted();
+  if (events.gauntlet) playGauntletAlarm();
   if (events.zone) playGobble();
   if (events.escaped) {
     playEscaped();

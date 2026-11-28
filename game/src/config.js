@@ -1,5 +1,5 @@
-// Gobble Dash 2 — shared tuning: view size, run physics, farmer
-// behaviour and the three zones Pip escapes through.
+// Gobble Dash 3 tuning: view, turkey physics, Farmer Hank's brain,
+// power-ups and the three zones between Pip and freedom.
 
 export const VIEW = { width: 960, height: 540, groundY: 456 };
 export const STEP = 1 / 60;
@@ -7,16 +7,18 @@ export const PIXELS_PER_METRE = 44;
 
 export const RUN = {
   escapeDistance: 1500,
+  gauntletFrom: 1380,
   maxLives: 3,
   turkeyX: 320,
-  cruiseSpeed: 5.6,
-  dashSpeed: 9.2,
+  cruiseSpeed: 5.7,
+  dashSpeed: 9.4,
+  turboSpeed: 11.4,
   brakeSpeed: 2.6,
-  jumpVelocity: 760,
-  gravity: 1500,
+  jumpVelocity: 770,
+  gravity: 1520,
   staminaMax: 100,
   dashDrain: 30,
-  dashRegen: 18,
+  dashRegen: 19,
   cornStamina: 24,
   cornScore: 25,
   stumbleSeconds: 0.85,
@@ -25,12 +27,20 @@ export const RUN = {
   maxCombo: 8,
 };
 
+export const POWERUP = {
+  turboSeconds: 3.2,
+  magnetSeconds: 6,
+  magnetRadius: 170,
+  spawnChance: 0.16,
+};
+
 export const FARMER = {
   startGap: 26,
   maxGap: 46,
-  baseSpeed: 5.15,
+  baseSpeed: 5.2,
   zoneSpeedBonus: [0, 0.45, 0.95],
-  lungeSpeed: 10.2,
+  gauntletBonus: 0.55,
+  lungeSpeed: 10.4,
   lungeSeconds: 1.25,
   lungeWarnSeconds: 0.6,
   lungeCooldown: [6.5, 9.5],
@@ -42,7 +52,7 @@ export const FARMER = {
 
 export const ZONES = [
   { name: 'Farmyard', from: 0, skyTop: '#f8cf7e', skyBottom: '#fdf0cd', ground: '#8a5a33', trim: '#c98f3d' },
-  { name: 'Pumpkin Orchard', from: 500, skyTop: '#f4a95c', skyBottom: '#fbd9a0', ground: '#7c4f2c', trim: '#d97b2f' },
+  { name: 'Pumpkin Orchard', from: 500, skyTop: '#f0a05a', skyBottom: '#fbd9a0', ground: '#7c4f2c', trim: '#d97b2f' },
   { name: 'The Kitchen', from: 1000, skyTop: '#5d4a3a', skyBottom: '#8a6a4d', ground: '#4c3a2c', trim: '#e8dcc3' },
 ];
 
@@ -66,4 +76,8 @@ export function zoneIndexFor(distance) {
 
 export function zoneName(distance) {
   return ZONES[zoneIndexFor(distance)].name;
+}
+
+export function inGauntlet(distance) {
+  return distance >= RUN.gauntletFrom && distance < RUN.escapeDistance;
 }

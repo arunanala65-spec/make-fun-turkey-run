@@ -1,5 +1,6 @@
 // Synthesised WebAudio sounds — no audio files. Gobbles, jumps,
-// corn dings, near-miss whooshes, lunge warnings and jingles.
+// corn dings, power-up chimes, near-miss whooshes, lunge warnings,
+// the gauntlet alarm and win/lose jingles.
 
 let context = null;
 let muted = false;
@@ -41,6 +42,7 @@ export function playJump() { tone(280, 640, 0.16, 'sine', 0.1); }
 export function playDuck() { tone(520, 240, 0.1, 'sine', 0.06); }
 export function playDash() { tone(200, 720, 0.18, 'sawtooth', 0.05); }
 export function playNearMiss() { tone(900, 300, 0.12, 'sawtooth', 0.07); }
+export function playShieldBlock() { tone(520, 1040, 0.14, 'triangle', 0.12); }
 
 export function playCorn() {
   tone(880, 1320, 0.09, 'triangle', 0.12);
@@ -51,6 +53,12 @@ export function playFeather() {
   tone(660, 990, 0.12, 'triangle', 0.11);
   tone(990, 1320, 0.12, 'triangle', 0.09, 0.1);
 }
+
+export function playPowerup() {
+  [523, 784, 1047].forEach((f, i) => tone(f, f * 1.2, 0.1, 'square', 0.07, i * 0.07));
+}
+
+export function playTurbo() { tone(300, 1400, 0.3, 'sawtooth', 0.09); }
 
 export function playHit() {
   tone(220, 70, 0.22, 'sawtooth', 0.14);
@@ -64,8 +72,14 @@ export function playLungeWarning() {
 
 export function playSpotted() { tone(980, 980, 0.1, 'square', 0.1); }
 
+export function playGauntletAlarm() {
+  tone(440, 440, 0.12, 'square', 0.1, 0);
+  tone(440, 440, 0.12, 'square', 0.1, 0.18);
+  tone(587, 587, 0.18, 'square', 0.1, 0.36);
+}
+
 export function playEscaped() {
-  [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f, 0.16, 'triangle', 0.12, i * 0.12));
+  [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, f, 0.16, 'triangle', 0.12, i * 0.11));
 }
 
 export function playCaught() {

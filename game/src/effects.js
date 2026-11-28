@@ -1,6 +1,6 @@
-// Juice: particles, floating score popups, screen shake and the
-// red edge flash when Pip gets hit. Pure data + update helpers;
-// render.js draws whatever this module keeps alive.
+// Juice: particles (feathers, sparks, confetti), floating score
+// popups, screen shake, the red edge flash on hit, zone banners
+// and turbo flame trails. Data + updates only; render.js draws it.
 
 export function createEffects() {
   return { particles: [], popups: [], shake: 0, flash: 0, banner: null };
@@ -26,6 +26,33 @@ export function featherBurst(effects, rng, x, y) {
   burst(effects, rng, x, y, '#b0632f', 6, 70);
 }
 
+export function confettiRain(effects, rng, width) {
+  const colours = ['#ffd23f', '#e05252', '#7cb342', '#4fc3f7', '#f5b63f'];
+  for (let i = 0; i < 42; i += 1) {
+    effects.particles.push({
+      x: rng() * width,
+      y: -10 - rng() * 120,
+      vx: (rng() - 0.5) * 40,
+      vy: 60 + rng() * 90,
+      life: 1.6 + rng(),
+      colour: colours[i % colours.length],
+      size: 4 + rng() * 4,
+    });
+  }
+}
+
+export function flameTrail(effects, rng, x, y) {
+  effects.particles.push({
+    x: x + (rng() - 0.5) * 10,
+    y: y + (rng() - 0.5) * 16,
+    vx: -160 - rng() * 80,
+    vy: (rng() - 0.5) * 30,
+    life: 0.25 + rng() * 0.2,
+    colour: rng() < 0.5 ? '#ff7a3c' : '#ffd23f',
+    size: 5 + rng() * 6,
+  });
+}
+
 export function addPopup(effects, x, y, text, colour = '#ffd23f', size = 18) {
   effects.popups.push({ x, y, text, colour, size, life: 1.1 });
 }
@@ -47,7 +74,7 @@ export function stepEffects(effects, dt) {
     p.life -= dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += 380 * dt;
+    p.vy += 300 * dt;
   }
   effects.particles = effects.particles.filter((p) => p.life > 0);
   for (const popup of effects.popups) {
@@ -61,9 +88,4 @@ export function stepEffects(effects, dt) {
     effects.banner.life -= dt;
     if (effects.banner.life <= 0) effects.banner = null;
   }
-}
-
-export function shakeOffset(effects, rng) {
-  if (effects.shake <= 0.2) return { x: 0, y: 0 };
-  return { x: (rng() - 0.5) * effects.shake, y: (rng() - 0.5) * effects.shake };
 }

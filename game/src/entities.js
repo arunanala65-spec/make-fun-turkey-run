@@ -1,8 +1,8 @@
-// The two stars: Pip the turkey and Farmer Hank. This module owns
-// their state and per-step behaviour — turkey physics, hiding, and
-// the farmer's chase / warn / lunge / tired / search brain.
+// The two stars: Pip the turkey and Farmer Hank. Turkey physics,
+// hiding, and the farmer's chase / warn / lunge / tired / search
+// brain — with a gauntlet gear for the final oven stretch.
 
-import { FARMER, RUN, VIEW } from './config.js';
+import { FARMER, inGauntlet, RUN, VIEW } from './config.js';
 
 export const TURKEY_SIZE = { width: 66, height: 56, duckHeight: 34 };
 const GROUND = VIEW.groundY;
@@ -40,6 +40,7 @@ export function turkeySpeed(state, control) {
   const turkey = state.turkey;
   if (turkey.hidden) return 0;
   if (turkey.stumble > 0) return 2.2;
+  if (state.power.turbo > 0) return RUN.turboSpeed;
   if (control.brake) return RUN.brakeSpeed;
   if (control.dash && state.stamina > 1) return RUN.dashSpeed;
   return RUN.cruiseSpeed;
@@ -47,12 +48,12 @@ export function turkeySpeed(state, control) {
 
 export function stepTurkey(state, dt, control, events) {
   const turkey = state.turkey;
-  turkey.runPhase += dt * (control.dash && !turkey.hidden ? 16 : 11);
+  turkey.runPhase += dt * (state.power.turbo > 0 ? 20 : control.dash && !turkey.hidden ? 16 : 11);
   if (turkey.stumble > 0) turkey.stumble -= dt;
   if (turkey.invincible > 0) turkey.invincible -= dt;
 
   const wantDash = control.dash && state.stamina > 1 && !turkey.hidden && turkey.stumble <= 0;
-  if (wantDash) state.stamina = Math.max(0, state.stamina - RUN.dashDrain * dt);
+  if (wantDash && state.power.turbo <= 0) state.stamina = Math.max(0, state.stamina - RUN.dashDrain * dt);
   else state.stamina = Math.min(RUN.staminaMax, state.stamina + RUN.dashRegen * dt);
   state.speed = turkeySpeed(state, control);
 
@@ -84,7 +85,8 @@ export function farmerChaseSpeed(state) {
   if (farmer.state === 'lunge') return FARMER.lungeSpeed;
   if (farmer.state === 'tired') return FARMER.tiredSpeed;
   if (farmer.state === 'search') return 1.2;
-  return FARMER.baseSpeed + FARMER.zoneSpeedBonus[state.zone] + (farmer.state === 'warn' ? 0.4 : 0);
+  const gauntlet = inGauntlet(state.distance) ? FARMER.gauntletBonus : 0;
+  return FARMER.baseSpeed + FARMER.zoneSpeedBonus[state.zone] + gauntlet + (farmer.state === 'warn' ? 0.4 : 0);
 }
 
 export function hideInHaystack(state) {
