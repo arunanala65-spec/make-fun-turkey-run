@@ -1,9 +1,9 @@
-// Gobble Dash hand-in program (Node 22, standard library only).
-// Copies this repository's game/ and screenshots/ into the output
-// directory and writes dossier.json with the vendored make.fun
-// library, exactly as the turkey-run-game-01 gate expects.
-// The game itself is Gobble Dash — Last Turkey Out!: a static,
-// offline canvas runner (game/index.html + ES modules, no network).
+// Gobble Dash 2 hand-in program (Node 22, standard library only).
+// Copies game/ and screenshots/ into the output directory and
+// writes dossier.json with the vendored make.fun library, as the
+// turkey-run-game-01 gate expects. The game is a static, offline
+// canvas runner (game/index.html + ES modules, no network):
+// Pip the turkey escapes Farmer Hank across three zones.
 // Locally:  mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';

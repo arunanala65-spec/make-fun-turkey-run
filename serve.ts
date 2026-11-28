@@ -1,6 +1,5 @@
-// Local play-test server for Gobble Dash (Node 22, stdlib only).
-// Serves game/ on http://localhost:8080 so the turkey can be played
-// in desktop Chrome exactly as the grader's browser would load it.
+// Local play-test server for Gobble Dash 2 (Node 22, stdlib only).
+// Serves game/ on http://localhost:8080 for desktop Chrome testing.
 
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -60,5 +59,5 @@ createServer((request, response) => {
   });
   createReadStream(file).pipe(response);
 }).listen(port, '127.0.0.1', () => {
-  console.log(`Gobble Dash game/ is on http://localhost:${port}`);
+  console.log(`Gobble Dash 2 game/ is on http://localhost:${port}`);
 });
